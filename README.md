@@ -158,7 +158,9 @@ live-dashboard/
 └── .env.example                  # 环境变量模板
 ```
 
-## 快速开始
+## 本地开发
+
+> 只想在 VPS 上跑？跳到 [VPS 部署指南](#vps-部署指南docker--nginx)。
 
 ### 前置要求
 
@@ -297,36 +299,224 @@ cp -r out/* ../backend/public/
 
 3. `service.sh` 脚本在后台运行，通过轮询 `dumpsys` 获取前台应用
 
-## Docker 部署
+## VPS 部署指南（Docker + Nginx）
+
+以下是从零开始在 VPS 上部署的完整步骤。
+
+### 前置要求
+
+| 项目 | 说明 |
+|------|------|
+| Linux VPS | Ubuntu 20.04+ / Debian 11+ 推荐，1 核 512MB 内存即可 |
+| Docker | Docker Engine 20.10+ 和 Docker Compose V2 |
+| Nginx | 作为反向代理，处理 HTTPS 和速率限制 |
+| 域名 | 需要一个域名指向 VPS IP，用于 HTTPS |
+
+如果 VPS 还没有 Docker，先安装：
 
 ```bash
-# 1. 配置
-cp .env.example .env
-# 编辑 .env，填写你的 token 和 HASH_SECRET
-
-# 2. 创建 Docker 网络（如果使用外部网络配合 Nginx）
-docker network create your_network_name
-
-# 3. 修改 docker-compose.yml
-# - 将网络名称改为你的实际名称
-# - 按需调整 ipv4_address
-
-# 4. 构建并启动
-docker compose up -d --build
-
-# 5. 查看日志
-docker logs live_dashboard --tail 50
+# Ubuntu / Debian
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+# 退出并重新登录，使 docker 组生效
 ```
 
-Dockerfile 使用多阶段构建：第一阶段构建 Next.js 前端，第二阶段运行 Bun 后端并提供静态输出。容器以非 root 用户运行。
+### 第一步：克隆项目
 
-### Nginx 反向代理
+```bash
+cd ~
+git clone https://github.com/Monika-Dream/live-dashboard.git
+cd live-dashboard
+```
 
-参考 `deploy/nginx/example.conf` 获取配置示例。关键点：
+> 如果想用「Monika 的房间」主题，改为：`git clone -b redesign/monikas-room ...`
 
-- 对 `/api/report` 进行速率限制，防止滥用
-- 代理头部配置，确保正确获取客户端 IP
-- 使用你自己的证书（或 Cloudflare 源证书）配置 HTTPS
+### 第二步：配置环境变量
+
+```bash
+cp .env.example .env
+```
+
+用编辑器打开 `.env`（vim、nano 均可），按以下说明填写：
+
+```env
+# ──────────────────────────────────────────────────────────────
+# 设备令牌（每台设备一行）
+# 格式：随机密钥:设备ID:设备名称:平台
+# ⚠️ 冒号是分隔符，所以各字段本身不能包含冒号
+# ──────────────────────────────────────────────────────────────
+
+# 你的 Windows 电脑
+DEVICE_TOKEN_1=abc123def456:my-pc:My PC:windows
+
+# 你的 Android 手机（如果有）
+DEVICE_TOKEN_2=xyz789ghi012:my-phone:My Phone:android
+
+# ──────────────────────────────────────────────────────────────
+# HMAC 密钥（必填，用于窗口标题哈希去重，不设则服务器拒绝启动）
+# ──────────────────────────────────────────────────────────────
+HASH_SECRET=这里替换为下面命令生成的随机字符串
+```
+
+生成随机令牌和密钥：
+
+```bash
+# 生成设备令牌（用作 DEVICE_TOKEN 的密钥部分）
+openssl rand -hex 16
+# 输出示例：a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6
+
+# 生成 HASH_SECRET
+openssl rand -hex 32
+# 输出示例：1a2b3c4d5e6f...（64 个十六进制字符）
+```
+
+将生成的随机字符串填入 `.env` 对应位置即可。
+
+### 第三步：配置 Docker 网络
+
+项目使用 Docker 外部网络，这样容器可以和同一 VPS 上的 Nginx（或其他服务）通信。
+
+```bash
+# 如果你还没有 Docker 网络，创建一个
+docker network create my_network
+
+# 查看已有网络（如果你之前已有其他项目的网络，可以复用）
+docker network ls
+```
+
+然后编辑 `docker-compose.yml`，将最后几行的网络名称改为你的实际网络名：
+
+```yaml
+networks:
+  dm_network:
+    external: true
+    name: my_network  # ← 改成你刚创建的（或已有的）网络名
+```
+
+> 如果你不需要与其他容器通信，也可以删掉整个 `networks` 配置，改为暴露端口：
+> 在 `services.dashboard` 下添加 `ports: ["3000:3000"]`，然后 Nginx 代理到 `127.0.0.1:3000`。
+
+### 第四步：构建并启动
+
+```bash
+docker compose up -d --build
+```
+
+首次构建需要下载镜像和安装依赖，视网络速度可能需要几分钟。构建完成后检查：
+
+```bash
+# 查看容器状态（应该显示 Up）
+docker ps | grep live_dashboard
+
+# 查看启动日志（确认没有报错）
+docker logs live_dashboard --tail 30
+
+# 你应该能看到类似这样的输出：
+#   Server running on port 3000
+#   Static files: /app/public
+#   Schema migration complete
+```
+
+如果日志中出现 `HASH_SECRET is required` 错误，说明 `.env` 中的 `HASH_SECRET` 没有正确设置，回到第二步检查。
+
+### 第五步：配置 Nginx 反向代理
+
+项目提供了 Nginx 配置模板 `deploy/nginx/example.conf`，你需要复制并修改它。
+
+**1. 添加速率限制区域**
+
+编辑 Nginx 主配置 `/etc/nginx/nginx.conf`，在 `http {}` 块内添加一行：
+
+```nginx
+http {
+    # ... 其他配置 ...
+    limit_req_zone $binary_remote_addr zone=dashboard_api:2m rate=10r/s;
+}
+```
+
+**2. 创建站点配置**
+
+```bash
+sudo cp deploy/nginx/example.conf /etc/nginx/sites-available/dashboard.conf
+sudo ln -s /etc/nginx/sites-available/dashboard.conf /etc/nginx/sites-enabled/
+sudo vim /etc/nginx/sites-available/dashboard.conf
+```
+
+需要修改的地方：
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name your-domain.com;          # ← 改成你的域名
+
+    ssl_certificate /path/to/cert.pem;    # ← 改成你的证书路径
+    ssl_certificate_key /path/to/key.key; # ← 改成你的私钥路径
+
+    # 如果容器使用外部网络（第三步的方式），代理到容器 IP:
+    # proxy_pass http://172.20.0.80:3000;
+    #
+    # 如果容器暴露了端口（ports 方式），代理到本机:
+    # proxy_pass http://127.0.0.1:3000;
+}
+```
+
+> **SSL 证书**：可以用 [Let's Encrypt](https://certbot.eff.org/)（免费）或 Cloudflare 源证书。
+> Let's Encrypt 快速设置：`sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d your-domain.com`
+
+**3. 测试并重载 Nginx**
+
+```bash
+sudo nginx -t                # 检查配置语法
+sudo systemctl reload nginx  # 重载配置（不中断现有连接）
+```
+
+### 第六步：验证部署
+
+在浏览器打开 `https://your-domain.com`，你应该能看到仪表盘页面（此时没有设备数据，会显示所有设备离线的夜间模式）。
+
+用 curl 测试 API：
+
+```bash
+# 健康检查
+curl https://your-domain.com/api/health
+# 预期：{"status":"ok"}
+
+# 当前状态（此时 devices 应该为空数组）
+curl https://your-domain.com/api/current
+# 预期：{"devices":[],"recent_activities":[],"server_time":"...","viewer_count":1}
+```
+
+### 第七步：配置客户端 Agent
+
+部署完成后，在你的设备上安装 Agent，让它开始向服务器上报数据。详见上方 [Agent 配置](#agent-配置) 章节。
+
+配置要点：
+- `server_url` 填你的域名（如 `https://your-domain.com`），必须是 HTTPS
+- `token` 填 `.env` 中 `DEVICE_TOKEN_N` 冒号前的那段密钥（如 `abc123def456`）
+- Agent 运行后，刷新仪表盘页面，几秒内就能看到设备上线和当前活动
+
+### 更新部署
+
+当你 push 了新代码到 GitHub 后，在 VPS 上更新：
+
+```bash
+cd ~/live-dashboard
+git pull origin main
+docker compose up -d --build
+```
+
+Docker 会自动重建变更的部分（有缓存，通常比首次构建快很多）。SQLite 数据保存在 Docker volume 中，重建容器不会丢失数据。
+
+### 常见问题
+
+| 问题 | 解决方法 |
+|------|---------|
+| 容器启动后立刻退出 | `docker logs live_dashboard` 查看错误。通常是 `.env` 缺少必填项 |
+| 页面打不开（502） | 检查 Nginx 的 `proxy_pass` 地址是否和容器实际 IP/端口一致 |
+| Agent 上报失败（401） | 检查 Agent 的 `token` 是否和 `.env` 中 `DEVICE_TOKEN` 冒号前的部分完全一致 |
+| Agent 上报失败（连接超时） | 确认域名 DNS 解析正确、VPS 防火墙开放了 443 端口 |
+| 页面显示但没有数据 | Agent 在运行吗？`curl https://your-domain.com/api/current` 看 `devices` 是否有内容 |
+| 时间线日期不对 | 前端自动发送时区偏移，确认浏览器时区设置正确 |
 
 ## 安全设计
 
