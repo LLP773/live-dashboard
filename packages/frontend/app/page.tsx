@@ -3,124 +3,11 @@
 import type React from "react";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
-import type { CurrentResponse, TimelineResponse } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
 
 /** Strip trailing "喵~" from descriptions */
 function cleanDesc(appName: string, title?: string): string {
   return getAppDescription(appName, title).replace(/喵~$/, "").trim();
-}
-
-/* ═══ Rich Mock Data ═══ */
-const MOCK_DEVICES: CurrentResponse = {
-  devices: [
-    {
-      device_id: "pc", device_name: "Monika-PC", platform: "windows",
-      app_id: "code.exe", app_name: "VS Code", display_title: "live-dashboard",
-      last_seen_at: new Date().toISOString(), is_online: 1,
-      extra: { battery_percent: 91, battery_charging: true, music: { title: "月光奏鸣曲", artist: "Beethoven", app: "Spotify" } },
-    },
-    {
-      device_id: "phone", device_name: "Pixel 8", platform: "android",
-      app_id: "com.tencent.mm", app_name: "微信",
-      last_seen_at: new Date(Date.now() - 120_000).toISOString(), is_online: 1,
-      extra: { battery_percent: 67, battery_charging: false },
-    },
-    {
-      device_id: "mac", device_name: "MacBook Air", platform: "macos",
-      app_id: "com.apple.Safari", app_name: "Safari", display_title: "GitHub",
-      last_seen_at: new Date(Date.now() - 300_000).toISOString(), is_online: 1,
-      extra: { battery_percent: 45, battery_charging: false },
-    },
-  ],
-  recent_activities: [],
-  server_time: new Date().toISOString(),
-  viewer_count: 5,
-};
-
-function makeMockTimeline(): TimelineResponse {
-  const now = Date.now();
-  const min = 60_000;
-  const pcApps = [
-    { app_name: "VS Code", display_title: "live-dashboard", mins: 142 },
-    { app_name: "Google Chrome", display_title: "Stack Overflow", mins: 38 },
-    { app_name: "Discord", display_title: "", mins: 27 },
-    { app_name: "Spotify", display_title: "月光奏鸣曲", mins: 142 },
-    { app_name: "Windows Terminal", display_title: "", mins: 22 },
-    { app_name: "Figma", display_title: "Dashboard Redesign", mins: 45 },
-    { app_name: "Notion", display_title: "开发笔记", mins: 18 },
-    { app_name: "Postman", display_title: "API Testing", mins: 12 },
-    { app_name: "Docker Desktop", display_title: "", mins: 8 },
-    { app_name: "GitHub Desktop", display_title: "live-dashboard", mins: 15 },
-    { app_name: "Microsoft Edge", display_title: "MDN Web Docs", mins: 11 },
-    { app_name: "Telegram", display_title: "", mins: 20 },
-    { app_name: "ChatGPT", display_title: "", mins: 35 },
-    { app_name: "文件资源管理器", display_title: "", mins: 5 },
-    { app_name: "Cursor", display_title: "frontend", mins: 28 },
-    { app_name: "OneNote", display_title: "学习笔记", mins: 14 },
-    { app_name: "PowerShell", display_title: "", mins: 6 },
-    { app_name: "Obsidian", display_title: "日记", mins: 9 },
-  ];
-  const phoneApps = [
-    { app_name: "微信", display_title: "", mins: 48 },
-    { app_name: "哔哩哔哩", display_title: "【自制】我的Live Dashboard", mins: 35 },
-    { app_name: "小红书", display_title: "", mins: 22 },
-    { app_name: "Telegram", display_title: "", mins: 18 },
-    { app_name: "QQ音乐", display_title: "夜曲", mins: 40 },
-    { app_name: "淘宝", display_title: "", mins: 15 },
-    { app_name: "支付宝", display_title: "", mins: 3 },
-    { app_name: "抖音", display_title: "", mins: 25 },
-    { app_name: "知乎", display_title: "", mins: 12 },
-    { app_name: "相机", display_title: "", mins: 2 },
-    { app_name: "设置", display_title: "", mins: 4 },
-    { app_name: "百度地图", display_title: "", mins: 6 },
-    { app_name: "京东", display_title: "", mins: 8 },
-    { app_name: "桌面", display_title: "", mins: 1 },
-    { app_name: "Chrome", display_title: "Google", mins: 7 },
-    { app_name: "美团", display_title: "", mins: 10 },
-  ];
-  const macApps = [
-    { app_name: "Safari", display_title: "GitHub", mins: 32 },
-    { app_name: "PyCharm", display_title: "ml-project", mins: 55 },
-    { app_name: "Terminal", display_title: "", mins: 18 },
-    { app_name: "Slack", display_title: "", mins: 14 },
-    { app_name: "Apple Music", display_title: "Clair de Lune", mins: 55 },
-    { app_name: "Finder", display_title: "", mins: 5 },
-    { app_name: "Figma", display_title: "Icons", mins: 20 },
-    { app_name: "Arc", display_title: "Tailwind Docs", mins: 16 },
-    { app_name: "Warp", display_title: "", mins: 11 },
-    { app_name: "Docker Desktop", display_title: "", mins: 7 },
-    { app_name: "DBeaver", display_title: "production", mins: 9 },
-    { app_name: "Discord", display_title: "", mins: 12 },
-    { app_name: "Claude", display_title: "", mins: 22 },
-    { app_name: "Obsidian", display_title: "研究笔记", mins: 30 },
-    { app_name: "Preview", display_title: "screenshot.png", mins: 3 },
-    { app_name: "Notes", display_title: "", mins: 8 },
-  ];
-
-  const segments: TimelineResponse["segments"] = [];
-  let offset = 0;
-  for (const a of pcApps) {
-    segments.push({ app_name: a.app_name, app_id: "", display_title: a.display_title, started_at: new Date(now - (offset + a.mins) * min).toISOString(), ended_at: new Date(now - offset * min).toISOString(), duration_minutes: a.mins, device_id: "pc", device_name: "Monika-PC" });
-    offset += a.mins + 2;
-  }
-  offset = 0;
-  for (const a of phoneApps) {
-    segments.push({ app_name: a.app_name, app_id: "", display_title: a.display_title, started_at: new Date(now - (offset + a.mins) * min).toISOString(), ended_at: new Date(now - offset * min).toISOString(), duration_minutes: a.mins, device_id: "phone", device_name: "Pixel 8" });
-    offset += a.mins + 3;
-  }
-  offset = 0;
-  for (const a of macApps) {
-    segments.push({ app_name: a.app_name, app_id: "", display_title: a.display_title, started_at: new Date(now - (offset + a.mins) * min).toISOString(), ended_at: new Date(now - offset * min).toISOString(), duration_minutes: a.mins, device_id: "mac", device_name: "MacBook Air" });
-    offset += a.mins + 2;
-  }
-
-  const summary: Record<string, Record<string, number>> = { pc: {}, phone: {}, mac: {} };
-  for (const a of pcApps) summary.pc[a.app_name] = a.mins;
-  for (const a of phoneApps) summary.phone[a.app_name] = a.mins;
-  for (const a of macApps) summary.mac[a.app_name] = a.mins;
-
-  return { date: todayStr(), segments, summary };
 }
 
 /* ═══ Helpers ═══ */
@@ -212,14 +99,11 @@ function UsageChart({ data, maxMins }: { data: { name: string; mins: number; col
    ═══════════════════════════════════════ */
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
-  const [mock, setMock] = useState(false);
   const [activeDevFilter, setActiveDevFilter] = useState<string | null>(null);
   const colorRef = useRef(new Map<string, string>());
-  const mockTimeline = useRef(makeMockTimeline());
 
-  const data = mock ? MOCK_DEVICES : current;
-  const tlData = mock ? mockTimeline.current : timeline;
-  const viewers = mock ? 5 : viewerCount;
+  const data = current;
+  const tlData = timeline;
 
   // All online devices
   const onlineDevices = useMemo(() =>
@@ -242,9 +126,9 @@ export default function Home() {
   const music = active?.extra?.music;
 
   const allOffline = useMemo(() => {
-    if (!data?.devices || data.devices.length === 0) return !mock;
+    if (!data?.devices || data.devices.length === 0) return true;
     return data.devices.every((d) => d.is_online !== 1);
-  }, [data?.devices, mock]);
+  }, [data?.devices]);
 
   useEffect(() => {
     document.body.classList.toggle("night-mode", allOffline);
@@ -340,7 +224,6 @@ export default function Home() {
   // Fetch AI daily summary from backend
   const [dailySummary, setDailySummary] = useState<{ summary: string | null; generated_at: string | null } | null>(null);
   useEffect(() => {
-    if (mock) return;
     const controller = new AbortController();
     setDailySummary(null);
     fetch(`/api/daily-summary?date=${selectedDate}`, { signal: controller.signal })
@@ -348,7 +231,7 @@ export default function Home() {
       .then((d) => { if (d) setDailySummary(d); })
       .catch(() => {});
     return () => controller.abort();
-  }, [selectedDate, mock]);
+  }, [selectedDate]);
 
   return (
     <>
@@ -390,8 +273,8 @@ export default function Home() {
 
           {/* Right: time + viewers */}
           <div className="top-bar-right">
-            <span className="top-time">{fmtTime(mock ? new Date().toISOString() : data?.server_time)}</span>
-            {viewers > 0 && <span className="top-viewers">{viewers} 人在看</span>}
+            <span className="top-time">{fmtTime(data?.server_time)}</span>
+            {viewerCount > 0 && <span className="top-viewers">{viewerCount} 人在看</span>}
           </div>
         </div>
       </header>
@@ -456,12 +339,10 @@ export default function Home() {
               <div className="ai-summary reveal reveal-d5">
                 <p className="ai-summary-label">今日小结</p>
                 <p className="ai-summary-text">
-                  {mock
-                    ? "今天是高效的一天——大部分时间沉浸在代码与设计之间，Spotify 伴奏全程。偶尔切到社交应用透口气，节奏张弛有度。"
-                    : dailySummary?.summary || "每晚 21:00 自动生成"}
+                  {dailySummary?.summary || "每晚 21:00 自动生成"}
                 </p>
                 <span className="ai-summary-time">
-                  {mock ? "21:00 · AI 生成" : dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成..."}
+                  {dailySummary?.generated_at ? `${dailySummary.generated_at.slice(11, 16)} · AI 生成` : "等待生成..."}
                 </span>
               </div>
             </div>
@@ -552,11 +433,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-      {/* Mock toggle */}
-      <button type="button" className="dev-toggle" onClick={() => setMock((v) => !v)}>
-        {mock ? "Mock: ON" : "Mock: OFF"}
-      </button>
     </>
   );
 }
