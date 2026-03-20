@@ -75,8 +75,9 @@ export default function Home() {
           {/* View toggle */}
           <div className="flex justify-end gap-1 mb-4">
             <button
+              type="button"
               onClick={() => setViewMode("room")}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 ${
                 viewMode === "room"
                   ? "bg-[var(--color-primary)] text-white"
                   : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
@@ -85,8 +86,9 @@ export default function Home() {
               🏠 房间
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("cards")}
-              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 ${
                 viewMode === "cards"
                   ? "bg-[var(--color-primary)] text-white"
                   : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
