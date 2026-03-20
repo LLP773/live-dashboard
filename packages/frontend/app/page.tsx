@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
 import Header from "@/components/Header";
 import CurrentStatus from "@/components/CurrentStatus";
 import DeviceCard from "@/components/DeviceCard";
 import DatePicker from "@/components/DatePicker";
 import Timeline from "@/components/Timeline";
+import PixelRoom from "@/components/PixelRoom";
 
 export default function Home() {
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
@@ -29,6 +30,8 @@ export default function Home() {
     if (!current?.devices || current.devices.length === 0) return false;
     return current.devices.every((d) => d.is_online !== 1);
   }, [current?.devices]);
+
+  const [viewMode, setViewMode] = useState<"room" | "cards">("room");
 
   useEffect(() => {
     document.body.classList.toggle("night-mode", allOffline);
@@ -69,53 +72,81 @@ export default function Home() {
           {/* Current status - prominent VN dialog */}
           <CurrentStatus devices={current.devices ?? []} />
 
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* Left: device cards (narrow) */}
-            <div className="lg:w-56 flex-shrink-0 space-y-2">
-              <h2 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-                Devices
-              </h2>
-              {(!current.devices || current.devices.length === 0) ? (
-                <div className="text-center py-4">
-                  <p className="text-lg mb-1">( -ω-) zzZ</p>
-                  <p className="text-xs text-[var(--color-text-muted)] italic">
-                    还没有设备连接呢~
-                  </p>
-                </div>
-              ) : (
-                current.devices.map((d) => (
-                  <DeviceCard key={d.device_id} device={d} />
-                ))
-              )}
-            </div>
+          {/* View toggle */}
+          <div className="flex justify-end gap-1 mb-4">
+            <button
+              onClick={() => setViewMode("room")}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                viewMode === "room"
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+            >
+              🏠 房间
+            </button>
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`text-xs px-3 py-1.5 rounded-full transition-colors ${
+                viewMode === "cards"
+                  ? "bg-[var(--color-primary)] text-white"
+                  : "bg-[var(--color-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+            >
+              📋 卡片
+            </button>
+          </div>
 
-            {/* Right: timeline (wide) */}
-            <div className="flex-1 min-w-0">
-              {/* Date picker */}
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <DatePicker selectedDate={selectedDate} onChange={changeDate} />
+          {viewMode === "room" ? (
+            <PixelRoom devices={current.devices ?? []} isNightMode={allOffline} />
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-6">
+              {/* Left: device cards (narrow) */}
+              <div className="lg:w-56 flex-shrink-0 space-y-2">
+                <h2 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
+                  Devices
+                </h2>
+                {(!current.devices || current.devices.length === 0) ? (
+                  <div className="text-center py-4">
+                    <p className="text-lg mb-1">( -ω-) zzZ</p>
+                    <p className="text-xs text-[var(--color-text-muted)] italic">
+                      还没有设备连接呢~
+                    </p>
+                  </div>
+                ) : (
+                  current.devices.map((d) => (
+                    <DeviceCard key={d.device_id} device={d} />
+                  ))
+                )}
               </div>
 
-              <div className="separator-dashed mb-4" />
+              {/* Right: timeline (wide) */}
+              <div className="flex-1 min-w-0">
+                {/* Date picker */}
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <DatePicker selectedDate={selectedDate} onChange={changeDate} />
+                </div>
 
-              {/* Timeline content */}
-              {loading && timeline ? (
-                <div className="opacity-60">
+                <div className="separator-dashed mb-4" />
+
+                {/* Timeline content */}
+                {loading && timeline ? (
+                  <div className="opacity-60">
+                    <Timeline
+                      segments={timeline.segments}
+                      summary={timeline.summary}
+                      currentAppByDevice={currentAppByDevice}
+                    />
+                  </div>
+                ) : timeline ? (
                   <Timeline
                     segments={timeline.segments}
                     summary={timeline.summary}
                     currentAppByDevice={currentAppByDevice}
                   />
-                </div>
-              ) : timeline ? (
-                <Timeline
-                  segments={timeline.segments}
-                  summary={timeline.summary}
-                  currentAppByDevice={currentAppByDevice}
-                />
-              ) : null}
+                ) : null}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
 
