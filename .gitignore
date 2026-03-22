@@ -19,3 +19,4 @@ __pycache__/
 build/
 *.zip
 packages/backend/public/
+agents/android-app/local.properties
