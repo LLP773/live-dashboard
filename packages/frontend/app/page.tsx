@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useDashboard } from "@/hooks/useDashboard";
+import { useConfig, useConfigLoader, ConfigContext } from "@/hooks/useConfig";
 import type { DeviceState } from "@/lib/api";
 import { fetchHealthData } from "@/lib/api";
 import Header from "@/components/Header";
@@ -12,6 +13,17 @@ import Timeline from "@/components/Timeline";
 import HealthData from "@/components/HealthData";
 
 export default function Home() {
+  const config = useConfigLoader();
+
+  return (
+    <ConfigContext.Provider value={config}>
+      <HomeInner />
+    </ConfigContext.Provider>
+  );
+}
+
+function HomeInner() {
+  const { displayName } = useConfig();
   const { current, timeline, selectedDate, changeDate, loading, error, viewerCount } = useDashboard();
 
   // Selected device for CurrentStatus bubble
@@ -22,21 +34,6 @@ export default function Home() {
 
   // Check if health data exists for the selected date
   const [hasHealthData, setHasHealthData] = useState(false);
-
-  useEffect(() => {
-    if (!selectedDate) return;
-    const controller = new AbortController();
-    fetchHealthData(selectedDate, controller.signal)
-      .then((d) => {
-        if (!controller.signal.aborted) {
-          setHasHealthData(d.records.length > 0);
-        }
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setHasHealthData(false);
-      });
-    return () => controller.abort();
-  }, [selectedDate]);
 
   // Reset tab to activity if health data disappears
   useEffect(() => {
@@ -77,6 +74,28 @@ export default function Home() {
     }
     return devices.find((d) => d.is_online === 1) || devices[0];
   }, [devices, selectedDeviceId]);
+
+  // Check if health data exists for the selected date + device
+  const selectedDeviceIdResolved = selectedDevice?.device_id;
+  useEffect(() => {
+    // Don't fetch until we have both a date and a resolved device
+    if (!selectedDate || !selectedDeviceIdResolved) {
+      setHasHealthData(false);
+      return;
+    }
+    setHasHealthData(false); // reset immediately on device/date change
+    const controller = new AbortController();
+    fetchHealthData(selectedDate, controller.signal, selectedDeviceIdResolved)
+      .then((d) => {
+        if (!controller.signal.aborted) {
+          setHasHealthData(d.records.length > 0);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setHasHealthData(false);
+      });
+    return () => controller.abort();
+  }, [selectedDate, selectedDeviceIdResolved]);
 
   // Filter timeline data by selected device
   const filteredTimeline = useMemo(() => {
@@ -213,7 +232,7 @@ export default function Home() {
                   ) : null}
                 </>
               ) : (
-                <HealthData selectedDate={selectedDate} />
+                <HealthData selectedDate={selectedDate} deviceId={selectedDevice?.device_id} />
               )}
             </div>
           </div>
@@ -223,7 +242,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="mt-12 pt-4 separator-dashed text-center">
         <p className="text-[10px] text-[var(--color-text-muted)]">
-          Monika Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
+          {displayName} Now &middot; 每 10 秒自动刷新 &middot; (◕ᴗ◕)
         </p>
       </footer>
     </>
@@ -243,7 +262,7 @@ function DeviceOverview({ devices }: { devices: DeviceState[] }) {
         const icon = platformIcons[d.platform] || "\u{1F4BB}";
         return (
           <span key={d.device_id} className={isOnline ? "" : "opacity-40"}>
-            {icon} {d.device_name} · {isOnline ? (d.app_name || "idle") : "offline"}
+            {icon} {d.device_name} · {isOnline ? (d.app_name === "idle" ? "暂时离开" : d.app_name || "idle") : "offline"}
           </span>
         );
       })}

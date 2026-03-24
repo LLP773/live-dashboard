@@ -159,16 +159,27 @@ docker compose pull && docker compose up -d
 
 ## Agent 配置
 
-服务端跑起来后，在你的设备上安装对应的 Agent。
+服务端跑起来后，在你的设备上安装对应的 Agent，让它开始上报数据。
+
+从 [GitHub Releases](https://github.com/Monika-Dream/live-dashboard/releases) 下载对应平台的 Agent：
+
+| 平台 | 下载 | 需要 |
+|------|------|------|
+| Windows | `windows-agent.zip` | Python 3.10+ |
+| macOS | `macos-agent.zip` | Python 3.10+, 辅助功能权限 |
+| Android | `live-dashboard.apk` | Android 8.0+, Health Connect |
+
+> 也可以直接 clone 仓库，Agent 源码在 `agents/` 目录下。
 
 ### Windows Agent
 
-1. 安装 Python 3.10+ 及依赖：
+1. 下载并解压 `windows-agent.zip`
+2. 安装依赖：
    ```bash
-   pip install -r agents/windows/requirements.txt
+   pip install -r requirements.txt
    ```
 
-2. 复制 `agents/windows/config.example.json` 为 `config.json`，填入你的信息：
+3. 复制 `config.example.json` 为 `config.json`，填入你的信息：
    ```json
    {
      "server_url": "https://your-domain.com",
@@ -179,9 +190,9 @@ docker compose pull && docker compose up -d
    }
    ```
 
-3. 运行：`python agents/windows/agent.py`
+4. 运行：`python agent.py`
 
-4. 或打包为 .exe：运行 `build.bat`，然后使用 `install-task.bat` 设置开机自启
+5. 或打包为 .exe：运行 `build.bat`，然后使用 `install-task.bat` 设置开机自启
 
 **电量**：笔记本用户通过 `psutil.sensors_battery()` 自动获取电池信息。台式机不显示电量（正常现象）。
 
@@ -191,73 +202,37 @@ docker compose pull && docker compose up -d
 
 ### macOS Agent
 
-**前置要求**：macOS 10.14+，Python 3.10+，允许终端访问辅助功能（或通过 Accessibility 授权）。
-
-1. 安装依赖（建议使用 venv 隔离）：
+1. 下载并解压 `macos-agent.zip`
+2. 安装依赖（建议使用 venv 隔离）：
    ```bash
-   cd agents/macos
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
 
-2. 创建 `agents/macos/config.json`（参考 `config.json.example`，此文件已 gitignore）：
+3. 复制 `config.example.json` 为 `config.json`，填入你的信息：
    ```json
    {
-     "server_url": "http://your-server-ip-or-domain",
+     "server_url": "https://your-domain.com",
      "token": "第1步生成的MY_TOKEN",
      "interval_seconds": 5,
      "heartbeat_seconds": 60
    }
    ```
 
-3. 运行：
-   ```bash
-   .venv/bin/python agent.py
-   ```
+4. 运行：`.venv/bin/python agent.py`
 
-4. **开机自启动（launchd）**：
-   ```bash
-   # 创建 plist（替换路径为你的实际路径）
-   cat > ~/Library/LaunchAgents/com.live-dashboard.agent.plist << 'EOF'
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-       <key>Label</key>
-       <string>com.live-dashboard.agent</string>
-       <key>ProgramArguments</key>
-       <array>
-           <string>/path/to/live-dashboard/agents/macos/.venv/bin/python</string>
-           <string>/path/to/live-dashboard/agents/macos/agent.py</string>
-       </array>
-       <key>RunAtLoad</key>
-       <true/>
-       <key>KeepAlive</key>
-       <true/>
-       <key>StandardOutPath</key>
-       <string>/path/to/live-dashboard/agents/macos/agent.log</string>
-       <key>StandardErrorPath</key>
-       <string>/path/to/live-dashboard/agents/macos/agent.log</string>
-       <key>WorkingDirectory</key>
-       <string>/path/to/live-dashboard</string>
-   </dict>
-   </plist>
-   EOF
+5. **开机自启动（launchd）**：详见 `README.md`（zip 内附）
 
-   # 加载（立即生效，登录后自动启动）
-   launchctl load ~/Library/LaunchAgents/com.live-dashboard.agent.plist
-   ```
+**权限**：首次运行时，macOS 会弹出权限请求，需在「系统设置 → 隐私与安全性 → 辅助功能」中授权终端或 Python。
 
-**工作原理**：`agent.py` 通过 AppleScript (`osascript`) 获取前台应用名和窗口标题，每 5 秒向后端上报一次。电量信息通过 `psutil.sensors_battery()` 获取。音乐检测通过 AppleScript 查询 Spotify、Apple Music、QQ音乐、网易云音乐。
-
-**注意**：首次运行时，macOS 可能弹出权限请求，需在「系统设置 → 隐私与安全性 → 辅助功能」中授权终端或 Python。
+**工作原理**：通过 AppleScript 获取前台应用名和窗口标题，每 5 秒向后端上报。音乐检测支持 Spotify、Apple Music、QQ音乐、网易云音乐。
 
 ### Android App
 
 Android 客户端无需 root，通过 Health Connect 上传健康数据，并可选开启心跳上报（在线状态 + 电量）。
 
-1. 从 [`agents/android-app/`](./agents/android-app/) 下载 APK 安装
+1. 从 [Releases](https://github.com/Monika-Dream/live-dashboard/releases) 下载 `live-dashboard.apk` 安装
 2. 打开 APP，在「设置」页配置 `server_url` 和 `token`
 3. 在「健康」页授权 Health Connect 权限
 4. （可选）开启心跳上报
@@ -653,6 +628,7 @@ git clone -b redesign/pixel-room https://github.com/Monika-Dream/live-dashboard.
 | `PORT` | 否 | 监听端口（默认：3000） | `3000` |
 | `STATIC_DIR` | 否 | 前端静态文件目录（默认：`./public`） | `./public` |
 | `DB_PATH` | 否 | SQLite 数据库路径（默认：`/data/live-dashboard.db`） | `/data/live-dashboard.db` |
+| `DISPLAY_NAME` | 否 | 页面显示名称（默认：`Monika`）。会替换页头、状态气泡、页脚中的名字 | `Monika` |
 
 多设备支持：递增数字后缀 — `DEVICE_TOKEN_1`、`DEVICE_TOKEN_2`、`DEVICE_TOKEN_3`……
 
@@ -664,6 +640,9 @@ git clone -b redesign/pixel-room https://github.com/Monika-Dream/live-dashboard.
 | GET | `/api/current` | 获取所有设备状态 + 访客数 | 无 |
 | GET | `/api/timeline?date=YYYY-MM-DD&tz=-480` | 获取每日时间线（tz = getTimezoneOffset） | 无 |
 | GET | `/api/health` | 健康检查 | 无 |
+| GET | `/api/config` | 获取站点配置（显示名等） | 无 |
+| POST | `/api/health-data` | Agent 上传健康数据 | Bearer token |
+| GET | `/api/health-data?date=YYYY-MM-DD&tz=-480&device_id=xxx` | 查询健康数据（device_id 可选） | 无 |
 
 ### 上报请求体
 
@@ -801,6 +780,39 @@ live-dashboard/
 3. **`packages/frontend/src/lib/app-descriptions.ts`** — 添加戏剧化描述和可选的标题模板
 
 ## 自定义
+
+### 自定义显示名
+
+页面默认显示 "Monika"，可以通过 `DISPLAY_NAME` 环境变量改成你自己的名字。
+
+**Docker 部署**：在 `docker run` 命令中加一个 `-e` 参数：
+
+```bash
+docker run -d --name live-dashboard \
+  -p 3000:3000 \
+  -v dashboard_data:/data \
+  -e HASH_SECRET=<MY_SECRET> \
+  -e DEVICE_TOKEN_1=<MY_TOKEN>:my-pc:MyPC:windows \
+  -e DISPLAY_NAME=你的名字 \
+  ghcr.io/monika-dream/live-dashboard:latest
+```
+
+或在 `.env` / `docker-compose.yml` 中添加：
+
+```env
+DISPLAY_NAME=你的名字
+```
+
+**源码部署**：在启动后端前设置环境变量：
+
+```bash
+export DISPLAY_NAME=你的名字
+bun run src/index.ts
+```
+
+或写入项目根目录的 `.env` 文件。
+
+修改后无需重新构建前端，重启后端即可生效。前端通过 `/api/config` 接口动态读取显示名。
 
 ### 更换主题
 

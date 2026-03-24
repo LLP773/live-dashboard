@@ -1,11 +1,13 @@
 import type { DeviceState } from "@/lib/api";
 import { getAppDescription } from "@/lib/app-descriptions";
+import { useConfig } from "@/hooks/useConfig";
 
 interface Props {
   device: DeviceState | undefined;
 }
 
 export default function CurrentStatus({ device }: Props) {
+  const { displayName } = useConfig();
   const active = device?.is_online === 1 ? device : undefined;
 
   const isOnline = !!active;
@@ -38,7 +40,7 @@ export default function CurrentStatus({ device }: Props) {
         {isOnline ? (
           <>
             <p className="text-xs text-[var(--color-text-muted)] mb-1">
-              Monika 现在...
+              {displayName} 现在...
             </p>
             <p className="text-lg font-bold font-[var(--font-jp)] text-[var(--color-primary)] leading-relaxed status-text">
               {description}
@@ -60,7 +62,7 @@ export default function CurrentStatus({ device }: Props) {
           <div className="py-1">
             <p className="text-xl mb-1">(-.-)zzZ</p>
             <p className="text-sm text-[var(--color-text-muted)]">
-              Monika 不在电脑前喵~
+              {displayName} 不在电脑前喵~
             </p>
           </div>
         )}

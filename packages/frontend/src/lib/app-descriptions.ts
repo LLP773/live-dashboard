@@ -735,6 +735,8 @@ export function getAppDescription(appName: string, displayTitle?: string, music?
   if (!appName) return DEFAULT_DESCRIPTION;
 
   const appLower = appName.toLowerCase();
+
+  if (appLower === "idle") return "暂时离开了喵~";
   const isMusicAppForeground = _musicAppNames.has(appLower);
 
   // Base description (with or without display title)

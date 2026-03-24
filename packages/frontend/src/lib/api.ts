@@ -71,6 +71,7 @@ export async function fetchTimeline(date: string, signal?: AbortSignal): Promise
 
 // Health data types
 export interface HealthRecord {
+  device_id: string;
   type: string;
   value: number;
   unit: string;
@@ -83,9 +84,21 @@ export interface HealthDataResponse {
   records: HealthRecord[];
 }
 
-export async function fetchHealthData(date: string, signal?: AbortSignal): Promise<HealthDataResponse> {
+// Site config
+export interface SiteConfig {
+  displayName: string;
+}
+
+export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
+  const res = await fetch(`${API_BASE}/api/config`, { signal });
+  if (!res.ok) return { displayName: "Monika" };
+  return res.json();
+}
+
+export async function fetchHealthData(date: string, signal?: AbortSignal, deviceId?: string): Promise<HealthDataResponse> {
   const tz = new Date().getTimezoneOffset();
-  const url = `${API_BASE}/api/health-data?date=${encodeURIComponent(date)}&tz=${tz}`;
+  let url = `${API_BASE}/api/health-data?date=${encodeURIComponent(date)}&tz=${tz}`;
+  if (deviceId) url += `&device_id=${encodeURIComponent(deviceId)}`;
   const res = await fetch(url, { signal });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();

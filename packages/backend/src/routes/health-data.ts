@@ -95,6 +95,7 @@ export async function handleHealthData(req: Request): Promise<Response> {
 // Query endpoint for frontend (public, like /api/current and /api/timeline)
 export function handleHealthDataQuery(url: URL): Response {
   const date = url.searchParams.get("date");
+  const deviceId = url.searchParams.get("device_id");
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return Response.json({ error: "date parameter required (YYYY-MM-DD)" }, { status: 400 });
@@ -113,12 +114,22 @@ export function handleHealthDataQuery(url: URL): Response {
       const absM = Math.round((Math.abs(offsetHours) - absH) * 60);
       const modifier = `${sign}${String(absH).padStart(2, "0")}:${String(absM).padStart(2, "0")}`;
 
-      const records = db.prepare(`
-        SELECT type, value, unit, recorded_at, end_time
-        FROM health_records
-        WHERE date(recorded_at, '${modifier}') = ?
-        ORDER BY recorded_at ASC
-      `).all(date) as HealthRecord[];
+      let records: HealthRecord[];
+      if (deviceId) {
+        records = db.prepare(`
+          SELECT device_id, type, value, unit, recorded_at, end_time
+          FROM health_records
+          WHERE date(recorded_at, '${modifier}') = ? AND device_id = ?
+          ORDER BY recorded_at ASC
+        `).all(date, deviceId) as HealthRecord[];
+      } else {
+        records = db.prepare(`
+          SELECT device_id, type, value, unit, recorded_at, end_time
+          FROM health_records
+          WHERE date(recorded_at, '${modifier}') = ?
+          ORDER BY recorded_at ASC
+        `).all(date) as HealthRecord[];
+      }
 
       return Response.json({ date, records });
     }
@@ -132,12 +143,22 @@ export function handleHealthDataQuery(url: URL): Response {
     d.setUTCDate(d.getUTCDate() + 1);
     const startOfNextDay = d.toISOString();
 
-    const records = db.prepare(`
-      SELECT type, value, unit, recorded_at, end_time
-      FROM health_records
-      WHERE recorded_at >= ? AND recorded_at < ?
-      ORDER BY recorded_at ASC
-    `).all(startOfDay, startOfNextDay) as HealthRecord[];
+    let records: HealthRecord[];
+    if (deviceId) {
+      records = db.prepare(`
+        SELECT device_id, type, value, unit, recorded_at, end_time
+        FROM health_records
+        WHERE recorded_at >= ? AND recorded_at < ? AND device_id = ?
+        ORDER BY recorded_at ASC
+      `).all(startOfDay, startOfNextDay, deviceId) as HealthRecord[];
+    } else {
+      records = db.prepare(`
+        SELECT device_id, type, value, unit, recorded_at, end_time
+        FROM health_records
+        WHERE recorded_at >= ? AND recorded_at < ?
+        ORDER BY recorded_at ASC
+      `).all(startOfDay, startOfNextDay) as HealthRecord[];
+    }
 
     return Response.json({ date, records });
   } catch (e: any) {
