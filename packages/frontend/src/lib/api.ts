@@ -87,12 +87,46 @@ export interface HealthDataResponse {
 // Site config
 export interface SiteConfig {
   displayName: string;
+  siteTitle: string;
+  siteDescription: string;
+  siteFavicon: string;
+}
+
+const defaultConfig: SiteConfig = {
+  displayName: "Monika",
+  siteTitle: "Monika Now",
+  siteDescription: "What is Monika doing right now?",
+  siteFavicon: "/favicon.ico",
+};
+
+export { defaultConfig };
+
+function isValidFaviconUrl(url: string): boolean {
+  if (url.startsWith("/") && !url.startsWith("//")) return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
-  const res = await fetch(`${API_BASE}/api/config`, { signal });
-  if (!res.ok) return { displayName: "Monika" };
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/config`, { signal });
+    if (!res.ok) return defaultConfig;
+    const data = await res.json();
+    const favicon = typeof data.siteFavicon === "string" && isValidFaviconUrl(data.siteFavicon)
+      ? data.siteFavicon : defaultConfig.siteFavicon;
+    return {
+      displayName: typeof data.displayName === "string" ? data.displayName : defaultConfig.displayName,
+      siteTitle: typeof data.siteTitle === "string" ? data.siteTitle : defaultConfig.siteTitle,
+      siteDescription: typeof data.siteDescription === "string" ? data.siteDescription : defaultConfig.siteDescription,
+      siteFavicon: favicon,
+    };
+  } catch {
+    return defaultConfig;
+  }
 }
 
 export async function fetchHealthData(date: string, signal?: AbortSignal, deviceId?: string): Promise<HealthDataResponse> {

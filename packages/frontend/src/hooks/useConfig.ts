@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { fetchConfig } from "@/lib/api";
+import { fetchConfig, defaultConfig } from "@/lib/api";
 import type { SiteConfig } from "@/lib/api";
 
-const ConfigContext = createContext<SiteConfig>({ displayName: "Monika" });
+const ConfigContext = createContext<SiteConfig>(defaultConfig);
 
 export function useConfig() {
   return useContext(ConfigContext);
@@ -13,7 +13,7 @@ export function useConfig() {
 export { ConfigContext };
 
 export function useConfigLoader(): SiteConfig {
-  const [config, setConfig] = useState<SiteConfig>({ displayName: "Monika" });
+  const [config, setConfig] = useState<SiteConfig>(defaultConfig);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -1,10 +1,31 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { fetchConfig, defaultConfig } from "@/lib/api";
 
-export const metadata: Metadata = {
-  title: "Monika Now",
-  description: "What is Monika doing right now?",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const config = await fetchConfig();
+    return {
+      title: config.siteTitle,
+      description: config.siteDescription,
+      icons: { icon: config.siteFavicon },
+      openGraph: {
+        title: config.siteTitle,
+        description: config.siteDescription,
+      },
+    };
+  } catch {
+    return {
+      title: defaultConfig.siteTitle,
+      description: defaultConfig.siteDescription,
+      icons: { icon: defaultConfig.siteFavicon },
+      openGraph: {
+        title: defaultConfig.siteTitle,
+        description: defaultConfig.siteDescription,
+      },
+    };
+  }
+}
 
 export default function RootLayout({
   children,

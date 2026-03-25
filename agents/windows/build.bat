@@ -7,7 +7,12 @@ pip install -r requirements.txt pyinstaller
 
 echo.
 echo Building agent.exe...
-pyinstaller --onefile --noconsole --name live-dashboard-agent agent.py
+set HIDDEN=--hidden-import=pystray._win32 --hidden-import=pycaw.pycaw --hidden-import=comtypes
+if exist icon.ico (
+    pyinstaller --onefile --noconsole --icon=icon.ico %HIDDEN% --name live-dashboard-agent agent.py
+) else (
+    pyinstaller --onefile --noconsole %HIDDEN% --name live-dashboard-agent agent.py
+)
 
 echo.
 echo Done! Output: dist\live-dashboard-agent.exe
