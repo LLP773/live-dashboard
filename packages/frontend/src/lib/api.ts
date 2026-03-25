@@ -112,8 +112,13 @@ function isValidFaviconUrl(url: string): boolean {
 }
 
 export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  if (signal?.aborted) { clearTimeout(timeout); return defaultConfig; }
+  const onAbort = () => controller.abort();
+  signal?.addEventListener("abort", onAbort, { once: true });
   try {
-    const res = await fetch(`${API_BASE}/api/config`, { signal });
+    const res = await fetch(`${API_BASE}/api/config`, { signal: controller.signal });
     if (!res.ok) return defaultConfig;
     const data = await res.json();
     const favicon = typeof data.siteFavicon === "string" && isValidFaviconUrl(data.siteFavicon)
@@ -126,6 +131,9 @@ export async function fetchConfig(signal?: AbortSignal): Promise<SiteConfig> {
     };
   } catch {
     return defaultConfig;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
   }
 }
 
